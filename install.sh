@@ -1,6 +1,7 @@
 #!/bin/sh
 # One-time setup: build the image, start Countdown at every login, bind Ctrl+Alt+Space.
-# Usage: ./install.sh            install / update
+# Usage: ./install.sh            build the image from source, install / update
+#        COUNTDOWN_IMAGE=pythonking11/countdown:0.1.0 ./install.sh   use a prebuilt image
 #        ./install.sh --uninstall
 set -eu
 dir=$(cd "$(dirname "$0")" && pwd)
@@ -30,11 +31,18 @@ if [ "${1:-}" = "--uninstall" ]; then
 	exit 0
 fi
 
-echo "Building image…"
-(cd "$dir" && docker compose build)
+image=${COUNTDOWN_IMAGE:-countdown:latest}
+if [ -n "${COUNTDOWN_IMAGE:-}" ]; then
+	echo "Pulling $image…"
+	docker pull "$image"
+else
+	echo "Building image…"
+	(cd "$dir" && docker compose build)
+fi
 
-mkdir -p "$unit_dir" "$(dirname "$bin")"
-sed "s|@DIR@|$dir|" "$dir/systemd/countdown.service.in" > "$unit_dir/countdown.service"
+# Create bind-mount sources ourselves; if Docker creates them they belong to root.
+mkdir -p "$unit_dir" "$(dirname "$bin")" "${XDG_RUNTIME_DIR:?}/countdown" "$HOME/.local/share/backgrounds"
+sed -e "s|@DIR@|$dir|" -e "s|@IMAGE@|$image|" "$dir/systemd/countdown.service.in" > "$unit_dir/countdown.service"
 install -m 755 "$dir/bin/countdown-toggle" "$bin"
 systemctl --user daemon-reload
 systemctl --user enable countdown.service

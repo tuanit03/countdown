@@ -6,6 +6,8 @@ PartOf=graphical-session.target
 [Service]
 Type=simple
 WorkingDirectory=@DIR@
+# Run the container as the desktop user so it can read XAUTHORITY and the Pulse socket.
+Environment=COUNTDOWN_UID=%U COUNTDOWN_GID=%G COUNTDOWN_IMAGE=@IMAGE@
 ExecStartPre=/bin/mkdir -p %t/countdown %h/.local/share/backgrounds
 ExecStart=/usr/bin/docker compose up --no-build --no-log-prefix countdown
 ExecStop=/usr/bin/docker compose stop countdown

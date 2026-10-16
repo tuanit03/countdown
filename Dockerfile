@@ -44,8 +44,11 @@ RUN apt-get update \
 COPY --from=fonts /fonts /usr/share/fonts/truetype/countdown
 RUN fc-cache -f
 COPY --from=builder /src/target/release/countdown /usr/local/bin/countdown
-# Named volumes inherit this ownership on first use, so the app can save its settings.
-RUN mkdir -p /data /home/countdown/.config && chown -R 1000:1000 /data /home/countdown \
+# Named volumes inherit this ownership/mode on first use, so the app can save its settings.
+# World-writable (sticky) so the container also works when run as the host user's uid instead of 1000.
+RUN mkdir -p /data /home/countdown/.config /home/countdown/.cache /run/countdown \
+ && chown -R 1000:1000 /data /home/countdown /run/countdown \
+ && chmod 1777 /data /home/countdown /home/countdown/.config /home/countdown/.cache /run/countdown \
  && head -c 256 /dev/zero > /etc/pulse-dummy-cookie && chmod 644 /etc/pulse-dummy-cookie
 # PipeWire ignores the Pulse auth cookie; a dummy one keeps libpulse from complaining on a read-only fs.
 ENV HOME=/home/countdown COUNTDOWN_CONFIG=/data/config.json COUNTDOWN_CTL=/run/countdown/ctl \

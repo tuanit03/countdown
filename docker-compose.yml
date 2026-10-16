@@ -2,7 +2,8 @@
 services:
   countdown:
     build: .
-    image: countdown:latest
+    # Set COUNTDOWN_IMAGE=pythonking11/countdown:0.1.0 to use the prebuilt image instead of building.
+    image: ${COUNTDOWN_IMAGE:-countdown:latest}
     container_name: countdown
     init: true
     network_mode: none
@@ -12,7 +13,7 @@ services:
     security_opt: [no-new-privileges:true]
     tmpfs:
       - /tmp:size=8m
-      - /home/countdown/.cache:size=8m,uid=1000,gid=1000
+      - /home/countdown/.cache:size=8m,mode=1777
     user: "${COUNTDOWN_UID:-1000}:${COUNTDOWN_GID:-1000}"
     environment:
       DISPLAY: ${DISPLAY:-:0}

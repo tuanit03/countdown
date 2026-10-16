@@ -95,9 +95,23 @@ impl App {
     fn new() -> Res<App> {
         let cfg_path = Config::default_path();
         let cfg = Config::load(&cfg_path);
-        let ctl = ctl::Ctl::open(&ctl::default_path())?;
+        let ctl_path = ctl::default_path();
+        let ctl = ctl::Ctl::open(&ctl_path).map_err(|e| {
+            format!(
+                "cannot create control FIFO {}: {e} (uid {}). Mount a directory owned by this uid there \
+                 (compose: $XDG_RUNTIME_DIR/countdown, created by install.sh) or set COUNTDOWN_CTL",
+                ctl_path.display(),
+                unsafe { libc::getuid() }
+            )
+        })?;
         Ok(App {
-            win: Window::new()?,
+            win: Window::new().map_err(|e| {
+                format!(
+                    "cannot open X display {:?}: {e}. Mount /tmp/.X11-unix and the session XAUTHORITY file, \
+                     and run the container as the desktop user's uid",
+                    std::env::var("DISPLAY").unwrap_or_default()
+                )
+            })?,
             renderer: Renderer::new(),
             timer: Timer::default(),
             audio: Audio::spawn(),
