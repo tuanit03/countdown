@@ -6,6 +6,13 @@ services:
     container_name: countdown
     init: true
     network_mode: none
+    # Least privilege: no capabilities, no setuid escalation, immutable root fs.
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=8m
+      - /home/countdown/.cache:size=8m,uid=1000,gid=1000
     user: "${COUNTDOWN_UID:-1000}:${COUNTDOWN_GID:-1000}"
     environment:
       DISPLAY: ${DISPLAY:-:0}

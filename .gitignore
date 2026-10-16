@@ -1,1 +1,17 @@
-/target
+# Build output
+/target/
+**/*.rs.bk
+
+# Local/editor/agent state
+.env
+.env.*
+*.swp
+*~
+.DS_Store
+.idea/
+.vscode/
+.claude/settings.local.json
+
+# Scratch captures from testing
+*.png
+*.wav

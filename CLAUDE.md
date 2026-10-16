@@ -43,5 +43,7 @@ There is one binary with two threads. The main thread (`main.rs`) runs a `poll()
 ## Platform constraints
 
 - The app must stay an X11 client (via Xwayland). Under Wayland a client can't position itself or stay on top, and Xwayland can't grab global keys. That is why the hotkey is a GNOME custom keybinding that writes to the FIFO.
-- `docker-compose.yml` needs `XAUTHORITY`, `DISPLAY` and `XDG_RUNTIME_DIR` from the session. The systemd user unit inherits them from GNOME. Run the container with `network_mode: none` and `init: true` (PID 1 signal handling).
+- `docker-compose.yml` needs `XAUTHORITY`, `DISPLAY` and `XDG_RUNTIME_DIR` from the session. The systemd user unit inherits them from GNOME. The container is locked down: `network_mode: none`, `read_only`, `cap_drop: ALL`, `no-new-privileges`, plus `init: true` for PID 1 signals. Anything that must write goes to the tmpfs mounts or `/data`.
+- Font downloads in the Dockerfile are pinned to google/fonts commits and verified by sha256. When bumping a font, update the revision and the checksum together.
+- `.dockerignore` is a whitelist (`Cargo.*`, `src/`). Add new build inputs there explicitly.
 - Melt is an approximation (faded smears). cairo has no blur/goo filter.

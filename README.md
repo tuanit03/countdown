@@ -12,6 +12,10 @@ Script build image Docker, cài `countdown.service` (systemd user, tự chạy m
 
 Yêu cầu: GNOME (Wayland hoặc Xorg) có XWayland, Docker, PipeWire/PulseAudio.
 
+Image dựng sẵn: `docker pull pythonking11/countdown:0.1.0`, rồi `docker tag pythonking11/countdown:0.1.0 countdown:latest`; sau đó các bước dưới không cần build.
+
+Container chạy với quyền tối thiểu: không mạng, root fs chỉ đọc, bỏ mọi capability, uid 1000. Nó vẫn cần socket X11 và PulseAudio của phiên đăng nhập; quyền truy cập hai socket này tương đương một app desktop bình thường.
+
 ## Dùng
 
 **Ctrl+Alt+Space → gõ số → ↑ ↓ chọn âm → Enter.** Gõ kiểu lò vi sóng: `2 5 0 0` = 25:00, `4 2 5` = 04:25.
@@ -43,3 +47,7 @@ docker compose build && systemctl --user restart countdown  # cập nhật bản
 ```
 
 Chạy thử không qua service: `docker compose run --rm countdown --show`.
+
+## License
+
+Mã nguồn: MIT (`LICENSE`). Font Archivo và JetBrains Mono: SIL OFL 1.1, file license đi kèm trong image tại `/usr/share/fonts/truetype/countdown/`.

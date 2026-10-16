@@ -1,4 +1,5 @@
-target
-.git
-docs
-*.md
+# Whitelist: the image only needs the Rust sources.
+*
+!Cargo.toml
+!Cargo.lock
+!src/
