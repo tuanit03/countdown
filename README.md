@@ -18,10 +18,10 @@ Yêu cầu: GNOME (Wayland hoặc Xorg) có XWayland, Docker, PipeWire/PulseAudi
 
 | Phím | Tác dụng |
 | --- | --- |
-| Số, Backspace | Nhập thời gian |
+| Số (hàng trên hoặc bàn phím số, bật/tắt NumLock đều được), Backspace | Nhập thời gian |
 | Enter / click | Bắt đầu · tạm dừng · tiếp tục |
 | Esc, Q | Hủy và ẩn |
-| ↑ ↓ / lăn chuột | Đổi âm (mưa, sóng biển, tiếng ồn nâu, gió rừng, lửa trại), nghe thử khi đang nhập |
+| ↑ ↓ (phím mũi tên) / lăn chuột | Đổi âm (mưa, sóng biển, tiếng ồn nâu, gió rừng, lửa trại), nghe thử khi đang nhập |
 | M | Tắt/bật tiếng |
 | + / − | Âm lượng |
 | S | Chuyển cảnh: vỡ vụn / tan chảy |

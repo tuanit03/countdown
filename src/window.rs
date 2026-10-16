@@ -61,6 +61,8 @@ pub struct Window {
     /// (x, y, w, h) of the monitor the window sits on.
     pub monitor: (i16, i16, u16, u16),
     keymap: (u8, u8, Vec<u32>),
+    /// Modifier bit NumLock is bound to (usually Mod2).
+    numlock: u16,
     pub last_time: u32,
 }
 
@@ -151,14 +153,22 @@ impl Window {
             cairo::XCBSurface::create(&cconn, &cairo::XCBDrawable(pixmap), &cvis, WIDTH as i32, HEIGHT as i32)?
         };
 
-        let keymap = {
-            let min = conn.setup().min_keycode;
-            let max = conn.setup().max_keycode;
-            let r = conn.get_keyboard_mapping(min, max - min + 1)?.reply()?;
-            (min, r.keysyms_per_keycode, r.keysyms)
+        let (keymap, numlock) = load_keymap(&conn)?;
+        let w = Window {
+            conn,
+            win,
+            root,
+            atoms,
+            pixmap,
+            gc,
+            surface,
+            _visual: visual,
+            mapped: false,
+            monitor: (0, 0, 1920, 1080),
+            keymap,
+            numlock,
+            last_time: 0,
         };
-
-        let w = Window { conn, win, root, atoms, pixmap, gc, surface, _visual: visual, mapped: false, monitor: (0, 0, 1920, 1080), keymap, last_time: 0 };
         w.set_input_rects(&[])?;
         w.conn.flush()?;
         Ok(w)
@@ -244,12 +254,11 @@ impl Window {
         Ok(())
     }
 
-    fn keysym(&self, code: u8, shift: bool) -> u32 {
+    fn keysym(&self, code: u8, shift: bool, numlock: bool) -> u32 {
         let (min, per, syms) = &self.keymap;
         let base = (code.saturating_sub(*min)) as usize * *per as usize;
-        let pick = |i: usize| syms.get(base + i).copied().unwrap_or(0);
-        let sym = if shift { pick(1) } else { 0 };
-        if sym != 0 { sym } else { pick(0) }
+        let end = (base + *per as usize).min(syms.len());
+        pick_keysym(syms.get(base..end).unwrap_or(&[]), shift, numlock)
     }
 
     /// Translate pending X events. Returns Err when the display connection is gone.
@@ -262,7 +271,8 @@ impl Window {
                     let state = u16::from(k.state);
                     let shift = state & u16::from(KeyButMask::SHIFT) != 0;
                     let ctrl = state & u16::from(KeyButMask::CONTROL) != 0;
-                    out.push(Input::Key { sym: self.keysym(k.detail, shift), ctrl });
+                    let numlock = state & self.numlock != 0;
+                    out.push(Input::Key { sym: self.keysym(k.detail, shift, numlock), ctrl });
                 }
                 E::ButtonPress(b) => {
                     self.last_time = b.time;
@@ -279,11 +289,7 @@ impl Window {
                 }
                 E::Expose(e) if e.count == 0 => out.push(Input::Expose),
                 E::MappingNotify(_) => {
-                    let min = self.conn.setup().min_keycode;
-                    let max = self.conn.setup().max_keycode;
-                    if let Ok(r) = self.conn.get_keyboard_mapping(min, max - min + 1)?.reply() {
-                        self.keymap = (min, r.keysyms_per_keycode, r.keysyms);
-                    }
+                    (self.keymap, self.numlock) = load_keymap(&self.conn)?;
                 }
                 _ => {}
             }
@@ -294,5 +300,76 @@ impl Window {
     pub fn flush(&self) -> Res<()> {
         self.conn.flush()?;
         Ok(())
+    }
+}
+
+const NUM_LOCK: u32 = 0xff7f;
+
+fn is_keypad(sym: u32) -> bool {
+    (0xff80..=0xffbd).contains(&sym)
+}
+
+/// Core-protocol keysym selection: NumLock switches keypad keys to their second (digit) level,
+/// where Shift then flips back; elsewhere Shift picks the second level.
+pub fn pick_keysym(syms: &[u32], shift: bool, numlock: bool) -> u32 {
+    let at = |i: usize| syms.get(i).copied().unwrap_or(0);
+    let (lower, upper) = (at(0), if at(1) != 0 { at(1) } else { at(0) });
+    if numlock && is_keypad(upper) {
+        return if shift { lower } else { upper };
+    }
+    if shift { upper } else { lower }
+}
+
+type Keymap = (u8, u8, Vec<u32>);
+
+/// Keyboard mapping plus the modifier mask carrying NumLock.
+fn load_keymap(conn: &XCBConnection) -> Res<(Keymap, u16)> {
+    let min = conn.setup().min_keycode;
+    let max = conn.setup().max_keycode;
+    let r = conn.get_keyboard_mapping(min, max - min + 1)?.reply()?;
+    let per = r.keysyms_per_keycode as usize;
+    let mods = conn.get_modifier_mapping()?.reply()?;
+    let per_mod = mods.keycodes_per_modifier() as usize;
+    let mut numlock = 0u16;
+    for (i, codes) in mods.keycodes.chunks(per_mod.max(1)).enumerate().take(8) {
+        let has_numlock = codes.iter().any(|&c| {
+            c >= min && {
+                let base = (c - min) as usize * per;
+                r.keysyms.get(base..base + per).is_some_and(|s| s.contains(&NUM_LOCK))
+            }
+        });
+        if has_numlock {
+            numlock |= 1 << i;
+        }
+    }
+    // Fall back to Mod2, where NumLock lives on practically every layout.
+    if numlock == 0 {
+        numlock = u16::from(KeyButMask::MOD2);
+    }
+    Ok(((min, r.keysyms_per_keycode, r.keysyms), numlock))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const KP_UP: u32 = 0xff97;
+    const KP_8: u32 = 0xffb8;
+
+    #[test]
+    fn numlock_selects_keypad_digits() {
+        let kp8 = [KP_UP, KP_8, KP_UP, KP_8];
+        assert_eq!(pick_keysym(&kp8, false, true), KP_8);
+        assert_eq!(pick_keysym(&kp8, true, true), KP_UP);
+        assert_eq!(pick_keysym(&kp8, false, false), KP_UP);
+        assert_eq!(pick_keysym(&kp8, true, false), KP_8);
+    }
+
+    #[test]
+    fn numlock_leaves_other_keys_alone() {
+        let a = [0x61, 0x41];
+        assert_eq!(pick_keysym(&a, false, true), 0x61);
+        assert_eq!(pick_keysym(&a, true, true), 0x41);
+        assert_eq!(pick_keysym(&[0xff0d], true, false), 0xff0d);
     }
 }

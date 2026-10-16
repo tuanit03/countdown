@@ -28,12 +28,30 @@ mod keys {
     pub const DELETE: u32 = 0xffff;
     pub const UP: u32 = 0xff52;
     pub const DOWN: u32 = 0xff54;
-    pub const KP_UP: u32 = 0xff97;
-    pub const KP_DOWN: u32 = 0xff99;
+    pub const KP_DELETE: u32 = 0xff9f;
     pub const KP_0: u32 = 0xffb0;
     pub const KP_9: u32 = 0xffb9;
     pub const KP_ADD: u32 = 0xffab;
     pub const KP_SUBTRACT: u32 = 0xffad;
+
+    /// The keypad always types digits, whether NumLock is on (KP_0…KP_9)
+    /// or off (KP_Insert, KP_End, KP_Down, … — the same keys' navigation level).
+    pub fn keypad_digit(sym: u32) -> Option<u8> {
+        Some(match sym {
+            KP_0..=KP_9 => (sym - KP_0) as u8,
+            0xff9e => 0, // KP_Insert
+            0xff9c => 1, // KP_End
+            0xff99 => 2, // KP_Down
+            0xff9b => 3, // KP_Next
+            0xff96 => 4, // KP_Left
+            0xff9d => 5, // KP_Begin
+            0xff98 => 6, // KP_Right
+            0xff95 => 7, // KP_Home
+            0xff97 => 8, // KP_Up
+            0xff9a => 9, // KP_Prior
+            _ => return None,
+        })
+    }
 }
 
 struct Toast {
@@ -205,14 +223,17 @@ impl App {
                 if ctrl {
                     return;
                 }
+                if let Some(d) = keys::keypad_digit(sym) {
+                    self.timer.digit(d, ev);
+                    return;
+                }
                 match sym {
                     0x30..=0x39 => self.timer.digit((sym - 0x30) as u8, ev),
-                    keys::KP_0..=keys::KP_9 => self.timer.digit((sym - keys::KP_0) as u8, ev),
                     keys::RETURN | keys::KP_ENTER => self.timer.activate(now, ev),
                     keys::ESCAPE | 0x71 | 0x51 => self.timer.hide(ev),
-                    keys::BACKSPACE | keys::DELETE => self.timer.backspace(),
-                    keys::UP | keys::KP_UP => self.cycle_sound(-1, now),
-                    keys::DOWN | keys::KP_DOWN => self.cycle_sound(1, now),
+                    keys::BACKSPACE | keys::DELETE | keys::KP_DELETE => self.timer.backspace(),
+                    keys::UP => self.cycle_sound(-1, now),
+                    keys::DOWN => self.cycle_sound(1, now),
                     0x6d | 0x4d => self.toggle_mute(now),
                     0x2b | 0x3d | keys::KP_ADD => self.change_volume(0.05, now),
                     0x2d | 0x5f | keys::KP_SUBTRACT => self.change_volume(-0.05, now),
@@ -481,5 +502,23 @@ fn main() {
     if let Err(e) = app.run() {
         eprintln!("countdown: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::keys::keypad_digit;
+
+    #[test]
+    fn keypad_types_digits_with_or_without_numlock() {
+        // NumLock on: KP_1, KP_3, KP_4, KP_6, KP_8
+        let on: Vec<_> = [0xffb1, 0xffb3, 0xffb4, 0xffb6, 0xffb8].into_iter().filter_map(keypad_digit).collect();
+        assert_eq!(on, vec![1, 3, 4, 6, 8]);
+        // NumLock off: KP_End, KP_Next, KP_Left, KP_Right, KP_Up
+        let off: Vec<_> = [0xff9c, 0xff9b, 0xff96, 0xff98, 0xff97].into_iter().filter_map(keypad_digit).collect();
+        assert_eq!(off, vec![1, 3, 4, 6, 8]);
+        // Main arrow keys are not digits (they change the sound).
+        assert_eq!(keypad_digit(0xff52), None);
+        assert_eq!(keypad_digit(0xff54), None);
     }
 }
