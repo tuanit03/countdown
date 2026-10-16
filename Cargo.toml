@@ -1,0 +1,16 @@
+[package]
+name = "countdown"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cairo-rs = { version = "0.22.9", features = ["xcb"] }
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
+libc = "0.2.190"
+libpulse-binding = "2.30.1"
+libpulse-simple-binding = "2.29.0"
+pango = { version = "0.22.9", features = ["v1_50"] }
+pangocairo = "0.22.9"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+x11rb = { version = "0.14.0", features = ["allow-unsafe-code", "shape", "randr"] }

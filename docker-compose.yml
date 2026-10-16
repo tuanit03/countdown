@@ -1,0 +1,31 @@
+# Started by countdown.service (see install.sh) after login, so DISPLAY/XAUTHORITY belong to the session.
+services:
+  countdown:
+    build: .
+    image: countdown:latest
+    container_name: countdown
+    init: true
+    network_mode: none
+    user: "${COUNTDOWN_UID:-1000}:${COUNTDOWN_GID:-1000}"
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      XAUTHORITY: /tmp/.Xauthority
+      PULSE_SERVER: unix:/run/pulse/native
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ${XAUTHORITY:?XAUTHORITY must point at the session's X auth file}:/tmp/.Xauthority:ro
+      - ${XDG_RUNTIME_DIR:?}/pulse/native:/run/pulse/native
+      - ${XDG_RUNTIME_DIR:?}/countdown:/run/countdown
+      # Wallpaper lookup (read-only): GNOME settings + wallpaper files at their host paths.
+      - ${HOME}/.config/dconf:/home/countdown/.config/dconf:ro
+      - /usr/share/backgrounds:/usr/share/backgrounds:ro
+      - ${HOME}/.local/share/backgrounds:${HOME}/.local/share/backgrounds:ro
+      - countdown-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 96m
+          cpus: "0.5"
+
+volumes:
+  countdown-data:

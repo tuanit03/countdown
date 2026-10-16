@@ -1,0 +1,22 @@
+#!/bin/sh
+# Bound to Ctrl+Alt+Space: show the countdown (or hide it while still entering a time).
+# Extra args are sent as further commands, e.g. `countdown-toggle "type 2500" enter`.
+ctl="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/countdown/ctl"
+
+send() {
+	# A FIFO write blocks forever if nobody reads it; give up after a second.
+	[ -p "$ctl" ] && timeout 1 sh -c 'printf "%s\n" "$2" > "$1"' _ "$ctl" "$1"
+}
+
+if ! send show; then
+	systemctl --user start countdown.service
+	i=0
+	until send show; do
+		i=$((i + 1))
+		[ "$i" -ge 20 ] && exit 1
+		sleep 0.25
+	done
+fi
+for cmd in "$@"; do
+	send "$cmd"
+done
