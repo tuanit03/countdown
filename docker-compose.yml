@@ -1,4 +1,6 @@
 # Started by countdown.service (see install.sh) after login, so DISPLAY/XAUTHORITY belong to the session.
+# Fixed project name: the container, volume and service stay the same whatever the checkout directory is called.
+name: countdown
 services:
   countdown:
     build: .
