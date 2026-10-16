@@ -1,5 +1,7 @@
-# Whitelist: the image only needs the Rust sources.
+# Whitelist: the image needs the Rust sources and the host scripts it embeds.
 *
 !Cargo.toml
 !Cargo.lock
 !src/
+!scripts/
+!bin/

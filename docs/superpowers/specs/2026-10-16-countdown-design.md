@@ -16,7 +16,7 @@ App đếm ngược không khung, chạy nền từ lúc đăng nhập, gọi l�
 | Kéo | Không; cố định giữa mép trên màn hình chính, cách 28 px |
 | Cài đặt | Phím tắt + lưu `/data/config.json` (volume Docker) |
 | Phím tắt toàn cục | Ctrl+Alt+Space = custom keybinding GNOME, ghi `show` vào FIFO `$XDG_RUNTIME_DIR/countdown/ctl` |
-| Tự khởi động | systemd user service sau `graphical-session.target`, chạy `docker compose up` |
+| Cài đặt / tự khởi động | `docker run --rm pythonking11/countdown install \| sh` (từ 0.2.0): script in từ image cài `countdown-run`, `countdown-toggle` và XDG autostart; không dùng compose hay systemd |
 | Ẩn | Tự ẩn 8 s sau khi về 0; Esc/phím tắt khi đang nhập → ẩn; Esc khi đang chạy → hủy và ẩn |
 
 ## Kiến trúc

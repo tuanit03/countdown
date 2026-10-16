@@ -9,7 +9,8 @@ send() {
 }
 
 if ! send show; then
-	systemctl --user start countdown.service
+	# Not running (e.g. stopped after a crash): start it, then retry.
+	"$(dirname "$0")/countdown-run" || exit 1
 	i=0
 	until send show; do
 		i=$((i + 1))

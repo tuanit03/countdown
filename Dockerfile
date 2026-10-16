@@ -10,6 +10,9 @@ WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm -rf src
 COPY src src
+# Host scripts are embedded in the binary (`install` / `uninstall` subcommands).
+COPY scripts scripts
+COPY bin bin
 RUN touch src/main.rs && cargo build --release
 
 FROM builder AS test
@@ -33,6 +36,8 @@ RUN base=https://raw.githubusercontent.com/google/fonts \
   | sha256sum -c -
 
 FROM ${RUNTIME_IMAGE}
+# The image reference the installer should launch; set when building a release tag.
+ARG IMAGE_REF=pythonking11/countdown:latest
 LABEL org.opencontainers.image.title="countdown" \
       org.opencontainers.image.description="Frameless X11 countdown timer with synthesized focus sounds" \
       org.opencontainers.image.source="https://github.com/tuanit03/countdown" \
@@ -52,6 +57,6 @@ RUN mkdir -p /data /home/countdown/.config /home/countdown/.cache /run/countdown
  && head -c 256 /dev/zero > /etc/pulse-dummy-cookie && chmod 644 /etc/pulse-dummy-cookie
 # PipeWire ignores the Pulse auth cookie; a dummy one keeps libpulse from complaining on a read-only fs.
 ENV HOME=/home/countdown COUNTDOWN_CONFIG=/data/config.json COUNTDOWN_CTL=/run/countdown/ctl \
-    PULSE_COOKIE=/etc/pulse-dummy-cookie
+    PULSE_COOKIE=/etc/pulse-dummy-cookie COUNTDOWN_IMAGE_REF=${IMAGE_REF}
 USER 1000:1000
 ENTRYPOINT ["/usr/local/bin/countdown"]

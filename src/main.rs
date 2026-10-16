@@ -2,6 +2,7 @@ mod anim;
 mod audio;
 mod config;
 mod ctl;
+mod host;
 mod render;
 mod timer;
 mod wallpaper;
@@ -499,6 +500,16 @@ impl App {
 }
 
 fn main() {
+    match std::env::args().nth(1).as_deref() {
+        Some("install") => return print!("{}", host::install_script()),
+        Some("uninstall") => return print!("{}", host::uninstall_script()),
+        Some("help" | "--help" | "-h") => {
+            return println!(
+                "Countdown — frameless countdown timer.\n\n  docker run --rm IMAGE install | sh     install (autostart + Ctrl+Alt+Space)\n  docker run --rm IMAGE uninstall | sh   remove\n\nWithout arguments the container runs the timer itself (started by countdown-run)."
+            );
+        }
+        _ => {}
+    }
     let mut app = match App::new() {
         Ok(a) => a,
         Err(e) => {

@@ -2,26 +2,37 @@
 
 Đồng hồ đếm ngược không khung: chỉ có con số, lơ lửng giữa mép trên màn hình, kèm âm thanh nền giúp tập trung. Thiết kế: `Countdown — Đồng hồ đếm ngược không khung.md`.
 
-## Cài đặt (một lần)
+## Cài đặt
+
+Trên bất kỳ máy Linux nào có Docker, chạy trong terminal của phiên desktop (không cần clone repo, không cần root):
 
 ```sh
-./install.sh
+docker run --rm pythonking11/countdown install | sh
 ```
 
-Script build image Docker, cài `countdown.service` (systemd user, tự chạy mỗi lần đăng nhập) và gán phím **Ctrl+Alt+Space**. Gỡ: `./install.sh --uninstall`.
-
-Yêu cầu: GNOME (Wayland hoặc Xorg) có XWayland, Docker, PipeWire/PulseAudio.
-
-### Máy khác: dùng image dựng sẵn (không cần build)
+Gỡ cài đặt:
 
 ```sh
-git clone https://github.com/tuanit03/countdown.git && cd countdown
-COUNTDOWN_IMAGE=pythonking11/countdown:0.1.1 ./install.sh
+docker run --rm pythonking11/countdown uninstall | sh
 ```
 
-Image cần các mount và biến môi trường mà `docker-compose.yml` khai báo (socket X11, XAUTHORITY, socket Pulse, thư mục FIFO), và phải chạy bằng UID của người dùng desktop. Vì vậy hãy cài qua `install.sh`/compose; `docker run` trơn sẽ báo thiếu display.
+Lệnh `install` chỉ in ra một script (xem trước: `docker run --rm pythonking11/countdown install > install.sh`). Script cài vào thư mục home của bạn:
 
-Container chạy với quyền tối thiểu: không mạng, root fs chỉ đọc, bỏ mọi capability, uid 1000. Nó vẫn cần socket X11 và PulseAudio của phiên đăng nhập; quyền truy cập hai socket này tương đương một app desktop bình thường.
+- `~/.local/bin/countdown-run`: chạy container với quyền truy cập màn hình, âm thanh, hình nền của phiên hiện tại.
+- `~/.local/bin/countdown-toggle`: gọi đồng hồ lên; trên GNOME được gán sẵn vào **Ctrl+Alt+Space**. Desktop khác: tự gán một phím tắt tới lệnh này.
+- `~/.config/autostart/countdown.desktop`: chạy nền mỗi lần đăng nhập.
+
+Container không thể tự truy cập màn hình hay loa của máy (Docker cách ly theo thiết kế), vì vậy cần script này thay vì `docker run` trơn.
+
+| Môi trường | Hỗ trợ |
+| --- | --- |
+| GNOME (Wayland hoặc Xorg) | Đầy đủ, phím tắt tự gán, màu chữ theo hình nền |
+| KDE, XFCE, Cinnamon… có compositor | Chạy được; tự gán phím tắt; đổi màu chữ bằng phím T |
+| Wayland không có XWayland | Không hiển thị được |
+| Không có compositor | Chạy được nhưng nền không trong suốt |
+| Không có PipeWire/PulseAudio | Chạy được, không có tiếng |
+
+Container chạy với quyền tối thiểu: không mạng, root fs chỉ đọc, bỏ mọi capability, chạy bằng uid của bạn. Nó vẫn cần socket X11 và PulseAudio của phiên đăng nhập; quyền truy cập hai socket này tương đương một app desktop bình thường.
 
 ## Dùng
 
@@ -50,10 +61,11 @@ Máy không cần cài Rust; mọi thứ build trong Docker:
 docker build --target builder -t countdown-dev .          # image dev (cache dependencies)
 docker run --rm -v "$PWD":/w -v countdown-target:/w/target -w /w countdown-dev cargo test --release
 docker build --target test .                               # chạy test như CI
-docker compose build && systemctl --user restart countdown  # cập nhật bản đang chạy
+./install.sh                                               # build image local rồi cài/cập nhật bản đang chạy
+./install.sh --uninstall
 ```
 
-Chạy thử không qua service: `docker compose run --rm countdown --show`.
+Phát hành: `docker build -t pythonking11/countdown:X.Y.Z -t pythonking11/countdown:latest --build-arg IMAGE_REF=pythonking11/countdown:X.Y.Z .` rồi push cả hai tag.
 
 ## License
 

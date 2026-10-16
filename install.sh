@@ -1,56 +1,13 @@
 #!/bin/sh
-# One-time setup: build the image, start Countdown at every login, bind Ctrl+Alt+Space.
-# Usage: ./install.sh            build the image from source, install / update
-#        COUNTDOWN_IMAGE=pythonking11/countdown:0.1.0 ./install.sh   use a prebuilt image
-#        ./install.sh --uninstall
+# Install from this checkout: build the image locally, then run the same installer the
+# published image ships (`docker run --rm pythonking11/countdown install | sh`).
+# Usage: ./install.sh | ./install.sh --uninstall
 set -eu
 dir=$(cd "$(dirname "$0")" && pwd)
-unit_dir="$HOME/.config/systemd/user"
-bin="$HOME/.local/bin/countdown-toggle"
-schema=org.gnome.settings-daemon.plugins.media-keys
-kb_path=/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/countdown/
-kb_schema="$schema.custom-keybinding:$kb_path"
-
-bindings_without_ours() {
-	gsettings get $schema custom-keybindings | tr -d "[]@as'" | tr ',' '\n' | sed 's/^ *//;/^$/d' | grep -vx "$kb_path" || true
-}
-
-set_bindings() {
-	list=$(printf "%s\n" "$@" | sed "/^$/d;s/.*/'&'/" | paste -sd, -)
-	gsettings set $schema custom-keybindings "[$list]"
-}
-
+image=countdown:latest
 if [ "${1:-}" = "--uninstall" ]; then
-	systemctl --user disable --now countdown.service 2>/dev/null || true
-	rm -f "$unit_dir/countdown.service" "$bin"
-	systemctl --user daemon-reload
-	set_bindings $(bindings_without_ours)
-	gsettings reset-recursively "$kb_schema" 2>/dev/null || true
-	(cd "$dir" && docker compose down --rmi local) || true
-	echo "Countdown removed (settings volume kept: docker volume rm countdown_countdown-data)."
+	docker run --rm "$image" uninstall | COUNTDOWN_IMAGE="$image" sh
 	exit 0
 fi
-
-image=${COUNTDOWN_IMAGE:-countdown:latest}
-if [ -n "${COUNTDOWN_IMAGE:-}" ]; then
-	echo "Pulling $image…"
-	docker pull "$image"
-else
-	echo "Building image…"
-	(cd "$dir" && docker compose build)
-fi
-
-# Create bind-mount sources ourselves; if Docker creates them they belong to root.
-mkdir -p "$unit_dir" "$(dirname "$bin")" "${XDG_RUNTIME_DIR:?}/countdown" "$HOME/.local/share/backgrounds"
-sed -e "s|@DIR@|$dir|" -e "s|@IMAGE@|$image|" "$dir/systemd/countdown.service.in" > "$unit_dir/countdown.service"
-install -m 755 "$dir/bin/countdown-toggle" "$bin"
-systemctl --user daemon-reload
-systemctl --user enable countdown.service
-systemctl --user restart countdown.service
-
-set_bindings $(bindings_without_ours) "$kb_path"
-gsettings set "$kb_schema" name 'Countdown'
-gsettings set "$kb_schema" command "$bin"
-gsettings set "$kb_schema" binding '<Control><Alt>space'
-
-echo "Done. Press Ctrl+Alt+Space, type the minutes/seconds (e.g. 2 5 0 0), ↑/↓ for the sound, Enter."
+docker build -t "$image" --build-arg IMAGE_REF="$image" "$dir"
+docker run --rm "$image" install | COUNTDOWN_IMAGE="$image" sh
